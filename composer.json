@@ -1,0 +1,37 @@
+{
+    "name": "jul6art/audit-bundle",
+    "type": "symfony-bundle",
+    "description": "Symfony audit bundle",
+    "homepage": "https://github.com/jul6art/audit-bundle",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Jul6Art",
+            "email": "admin@devinthehood.com",
+            "homepage": "https://devinthehood.com/"
+        }
+    ],
+    "require": {
+        "php": "^7.4",
+        "jul6art/core-bundle": "^1.0",
+        "symfony/config": "^4.4 || ^5.0",
+        "symfony/dependency-injection": "^4.4 || ^5.0",
+        "symfony/http-kernel": "^4.4 || ^5.0"
+    },
+    "require-dev": {
+        "dama/doctrine-test-bundle": "^6.0",
+        "phpunit/phpunit": "^7.0",
+        "symfony/phpunit-bridge": "^4.4 || ^5.0",
+        "symfony/var-dumper": "^4.4 || ^5.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Jul6Art\\AuditBundle\\": ""
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "Tests/"
+        }
+    }
+}
