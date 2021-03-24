@@ -23,7 +23,7 @@ Requirements
 Installation
 ------------
 
-```console
+```shell
 composer require jul6art/audit-bundle
 ```
 
