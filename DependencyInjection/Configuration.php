@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Jul6Art\AuditBundle\DependencyInjection;
 
 use Symfony\Component\Config\Definition\Builder\TreeBuilder;
@@ -10,20 +12,19 @@ use Symfony\Component\Config\Definition\ConfigurationInterface;
  */
 class Configuration implements ConfigurationInterface
 {
-    /**
-     * {@inheritdoc}
-     */
-    public function getConfigTreeBuilder()
+    #[\Override]
+    public function getConfigTreeBuilder(): TreeBuilder
     {
-        $builder = new TreeBuilder('audit');
+        $treeBuilder = new TreeBuilder('audit');
 
-        $node = $builder->getRootNode();
-
-        $node
+        $treeBuilder->getRootNode()
             ->children()
-                ->scalarNode('enabled')->defaultTrue()->end()
+                ->booleanNode('enabled')
+                    ->info('Exposed as the "audit.enabled" container parameter.')
+                    ->defaultTrue()
+                ->end()
             ->end();
 
-        return $builder;
+        return $treeBuilder;
     }
 }

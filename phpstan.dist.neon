@@ -1,0 +1,12 @@
+parameters:
+    level: max
+    phpVersion:
+        min: 80500
+        max: 80599
+    paths:
+        - AuditBundle.php
+        - Attribute
+        - DependencyInjection
+        - Tests
+        - rector.php
+    treatPhpDocTypesAsCertain: false
