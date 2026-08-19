@@ -21,7 +21,16 @@
         </testsuite>
     </testsuites>
 
-    <source>
+    <!--
+        ignoreIndirectDeprecations: fail on deprecations this bundle triggers, not on the ones a
+        dependency triggers inside its own code. With `dependency-versions: lowest` the CI
+        installs the minimum of every constraint, and those releases predate PHP 8.5 — an
+        implicitly nullable $eventName in the event-dispatcher contracts, and
+        ReflectionProperty::setAccessible() inside Doctrine's reflection. The bundle works with
+        them; failing the build over their internals would only force the minimums up for no real
+        gain. Same policy as jul6art/core-bundle.
+    -->
+    <source ignoreIndirectDeprecations="true">
         <include>
             <directory>.</directory>
         </include>
