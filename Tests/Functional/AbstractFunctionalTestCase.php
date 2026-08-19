@@ -32,11 +32,15 @@ abstract class AbstractFunctionalTestCase extends TestCase
      *
      * @param array<string, mixed> $auditConfig
      */
-    final protected function boot(string $environment = 'test', array $auditConfig = [], bool $withCore = true): ContainerInterface
-    {
-        $uniqueId = substr(md5(serialize([$auditConfig, $withCore])), 0, 12);
+    final protected function boot(
+        string $environment = 'test',
+        array $auditConfig = [],
+        bool $withCore = true,
+        bool $withOrm = false,
+    ): ContainerInterface {
+        $uniqueId = substr(md5(serialize([$auditConfig, $withCore, $withOrm])), 0, 12);
 
-        $this->kernel = new TestKernel($environment, $auditConfig, $withCore, $uniqueId);
+        $this->kernel = new TestKernel($environment, $auditConfig, $withCore, $uniqueId, $withOrm);
         $this->kernel->boot();
 
         return $this->kernel->getContainer();

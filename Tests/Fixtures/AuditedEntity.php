@@ -7,9 +7,10 @@ namespace Jul6Art\AuditBundle\Tests\Fixtures;
 use Jul6Art\AuditBundle\Attribute\Auditable;
 
 /**
- * Carries the attribute with an explicit event list.
+ * Carries the attribute with explicit arguments — the shape an entity uses when the defaults do
+ * not fit.
  */
-#[Auditable(events: ['created', 'edited'])]
+#[Auditable(onUpdate: false, ignoredFields: ['lastSeenAt'])]
 class AuditedEntity
 {
 }

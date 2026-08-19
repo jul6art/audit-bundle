@@ -13,22 +13,28 @@
     ],
     "require": {
         "php": "^8.5",
-        "jul6art/core-bundle": "^2.0.1",
+        "doctrine/doctrine-bundle": "^2.13 || ^3.0",
+        "doctrine/orm": "^3.3",
+        "jul6art/core-bundle": "^2.9.1",
         "symfony/config": "^7.4 || ^8.0",
         "symfony/dependency-injection": "^7.4 || ^8.0",
         "symfony/http-kernel": "^7.4 || ^8.0",
         "symfony/yaml": "^7.4 || ^8.0"
     },
     "require-dev": {
+        "doctrine/dbal": "^4.2",
         "friendsofphp/php-cs-fixer": "^3.68",
         "phpstan/extension-installer": "^1.4",
         "phpstan/phpstan": "^2.1",
+        "phpstan/phpstan-doctrine": "^2.0",
         "phpstan/phpstan-phpunit": "^2.0",
         "phpstan/phpstan-symfony": "^2.0",
         "phpunit/phpunit": "^13.2",
         "rector/rector": "^2.0",
         "symfony/framework-bundle": "^7.4 || ^8.0",
         "symfony/phpunit-bridge": "^7.4 || ^8.0",
+        "symfony/security-bundle": "^7.4 || ^8.0",
+        "symfony/security-csrf": "^7.4 || ^8.0",
         "symfony/var-dumper": "^7.4 || ^8.0"
     },
     "autoload": {
@@ -77,5 +83,8 @@
         "branch-alias": {
             "dev-master": "2.x-dev"
         }
+    },
+    "suggest": {
+        "symfony/security-bundle": "Required to resolve the actor of an audited action — without it every row is recorded with a null actor"
     }
 }

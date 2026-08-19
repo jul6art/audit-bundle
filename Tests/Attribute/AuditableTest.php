@@ -11,6 +11,11 @@ use Jul6Art\AuditBundle\Tests\Fixtures\PlainEntity;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\TestCase;
 
+/**
+ * L'API de l'attribut a changé en v3.0.0 : la liste d'événements (`getEvents()`) a laissé la
+ * place aux trois interrupteurs et à `ignoredFields`, qui est ce dont un projet a réellement
+ * besoin — décider quel événement compte, et quel champ est du bruit.
+ */
 #[CoversClass(Auditable::class)]
 final class AuditableTest extends TestCase
 {
@@ -26,19 +31,37 @@ final class AuditableTest extends TestCase
         self::assertSame(\Attribute::TARGET_CLASS, $attributes[0]->newInstance()->flags);
     }
 
-    public function testItDefaultsToAuditingEveryEvent(): void
+    public function testItAuditsTheThreeEventsByDefault(): void
     {
-        self::assertSame([], new Auditable()->getEvents());
+        $auditable = new Auditable();
+
+        self::assertTrue($auditable->onCreate);
+        self::assertTrue($auditable->onUpdate);
+        self::assertTrue($auditable->onDelete);
     }
 
-    public function testItKeepsTheConfiguredEvents(): void
+    /**
+     * `null` et non un tableau : c'est ce qui distingue « je n'ai rien demandé » de « je veux
+     * exactement cette liste », et donc ce qui permet au défaut applicatif
+     * (`audit.ignored_fields`) de s'appliquer.
+     */
+    public function testItNamesNoIgnoredFieldByDefault(): void
     {
-        self::assertSame(['created', 'deleted'], new Auditable(['created', 'deleted'])->getEvents());
+        self::assertNull(new Auditable()->ignoredFields);
     }
 
-    public function testItAcceptsTheEventsAsANamedArgument(): void
+    public function testAnEventCanBeSwitchedOffOnItsOwn(): void
     {
-        self::assertSame(['viewed'], new Auditable(events: ['viewed'])->getEvents());
+        $auditable = new Auditable(onUpdate: false);
+
+        self::assertTrue($auditable->onCreate);
+        self::assertFalse($auditable->onUpdate);
+        self::assertTrue($auditable->onDelete);
+    }
+
+    public function testItKeepsTheIgnoredFieldsItWasGiven(): void
+    {
+        self::assertSame(['updatedAt', 'viewCount'], new Auditable(ignoredFields: ['updatedAt', 'viewCount'])->ignoredFields);
     }
 
     public function testItIsReadableFromAnAnnotatedClass(): void
@@ -46,7 +69,10 @@ final class AuditableTest extends TestCase
         $attributes = new \ReflectionClass(AuditedEntity::class)->getAttributes(Auditable::class);
 
         self::assertCount(1, $attributes);
-        self::assertSame(['created', 'edited'], $attributes[0]->newInstance()->getEvents());
+
+        $auditable = $attributes[0]->newInstance();
+        self::assertFalse($auditable->onUpdate);
+        self::assertSame(['lastSeenAt'], $auditable->ignoredFields);
     }
 
     public function testAnAttributeWithoutArgumentsAuditsEverything(): void
@@ -54,7 +80,12 @@ final class AuditableTest extends TestCase
         $attributes = new \ReflectionClass(FullyAuditedEntity::class)->getAttributes(Auditable::class);
 
         self::assertCount(1, $attributes);
-        self::assertSame([], $attributes[0]->newInstance()->getEvents());
+
+        $auditable = $attributes[0]->newInstance();
+        self::assertTrue($auditable->onCreate);
+        self::assertTrue($auditable->onUpdate);
+        self::assertTrue($auditable->onDelete);
+        self::assertNull($auditable->ignoredFields);
     }
 
     public function testAClassWithoutTheAttributeExposesNone(): void
