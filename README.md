@@ -160,7 +160,7 @@ $this->auditLogger->startBatch();
 try {
     $this->provisionEverything();
 } finally {
-    $this->auditLogger->endBatch();   // one flush, here
+    $this->auditLogger->endBatch();   // one persist + one flush, here
 }
 ```
 
@@ -169,6 +169,23 @@ Calls nest, and only the outermost `endBatch()` flushes.
 > ⚠️ **Always close a batch in a `finally`.** An exception escaping an open batch leaves the
 > logger buffering every subsequent row until something else flushes — the trail then looks
 > incomplete rather than broken, which is harder to notice.
+
+An open batch **holds** its rows and persists them when it closes. That is not an implementation
+detail: the automatic listener writes from `postPersist`/`postUpdate`, which fire *inside*
+`UnitOfWork::commit()`, and a commit ends by clearing `entityInsertions` wholesale. A row merely
+`persist()`ed from a listener is swept away with it and never reaches the database — silently.
+
+So this is safe, and it is the shape a state machine or an importer actually needs:
+
+```php
+$this->auditLogger->startBatch();
+try {
+    $this->stateMachine->apply($order, 'ship');
+    $this->entityManager->flush();    // the listener writes here…
+} finally {
+    $this->auditLogger->endBatch();   // …and the row lands here
+}
+```
 
 ### Silencing the listener during a fan-out
 

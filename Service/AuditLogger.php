@@ -31,7 +31,7 @@ use Symfony\Component\HttpFoundation\RequestStack;
  * try {
  *     // …persist many rows; log() only stages them
  * } finally {
- *     $this->auditLogger->endBatch();   // one flush, here
+ *     $this->auditLogger->endBatch();   // one persist + one flush, here
  * }
  * ```
  *
@@ -40,16 +40,41 @@ use Symfony\Component\HttpFoundation\RequestStack;
  * > subsequent row until something else flushes — the trail then looks incomplete rather than
  * > broken, which is worse.
  *
+ * ## Why a batch buffers the rows instead of persisting them
+ *
+ * ⚠️ The obvious implementation — `persist()` now, flush at `endBatch()` — **loses every row
+ * written from inside a flush**, which is where {@see \Jul6Art\AuditBundle\EventListener\AuditableListener}
+ * always writes: `postPersist` and `postUpdate` fire *during* `UnitOfWork::commit()`, and the
+ * commit ends by clearing `entityInsertions` wholesale. An entity persisted from a listener is
+ * swept away with it, and the later flush has nothing left to insert. No exception, no warning:
+ * the trail is simply empty.
+ *
+ * So a batch holds the instances itself and persists them once the window closes — by then the
+ * commit is over and the insertions survive. This is also why an unbatched `log()` flushes
+ * immediately rather than waiting: a re-entrant flush runs its own complete commit, which does
+ * insert the row.
+ *
+ * Measured on wovex, 2026-08-26: a state-machine transition wrapped in a batch persisted its
+ * `workorder.updated` row on every request and stored **none of them** — and the query budget
+ * looked excellent, precisely because nothing was being written.
+ *
  * Batching the writes is not the same thing as silencing the automatic listener: see
  * {@see \Jul6Art\AuditBundle\EventListener\AuditableListener::startSkip()} for that.
  */
 class AuditLogger
 {
     /**
-     * Depth of the current `startBatch()` / `endBatch()` window. Above zero, `log()` persists
-     * without flushing.
+     * Depth of the current `startBatch()` / `endBatch()` window. Above zero, `log()` buffers
+     * instead of writing.
      */
     private int $batchDepth = 0;
+
+    /**
+     * Rows staged by an open batch, persisted by the matching `endBatch()`.
+     *
+     * @var list<AuditLog>
+     */
+    private array $buffer = [];
 
     /**
      * @param class-string<AuditLog> $logClass concrete entity extending the bundle's mapped
@@ -73,7 +98,8 @@ class AuditLogger
     }
 
     /**
-     * Closes the matching window and flushes. A no-op while an outer batch is still open.
+     * Closes the matching window, persists everything it staged and flushes once. A no-op while
+     * an outer batch is still open.
      */
     public function endBatch(): void
     {
@@ -81,9 +107,18 @@ class AuditLogger
             --$this->batchDepth;
         }
 
-        if (0 === $this->batchDepth) {
-            $this->entityManager->flush();
+        if (0 !== $this->batchDepth) {
+            return;
         }
+
+        $buffered = $this->buffer;
+        $this->buffer = [];
+
+        foreach ($buffered as $auditLog) {
+            $this->entityManager->persist($auditLog);
+        }
+
+        $this->entityManager->flush();
     }
 
     /**
@@ -111,10 +146,13 @@ class AuditLogger
             impersonatorId: $this->actorResolver?->getOriginalUserIdOrNull(),
         );
 
-        $this->entityManager->persist($auditLog);
+        if ($this->batchDepth > 0) {
+            $this->buffer[] = $auditLog;
 
-        if (0 === $this->batchDepth) {
-            $this->entityManager->flush();
+            return;
         }
+
+        $this->entityManager->persist($auditLog);
+        $this->entityManager->flush();
     }
 }

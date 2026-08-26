@@ -251,6 +251,36 @@ final class AuditTrailTest extends AbstractFunctionalTestCase
         self::assertCount(1, $this->rowsFromDatabase());
     }
 
+    /**
+     * ⚠️ Le test qui manquait, et la seule forme qui attrape le défaut : le lot enveloppe un
+     * `flush()` d'entité auditée, donc `log()` est appelé **depuis** `postUpdate`.
+     *
+     * La version naïve du lot (persist immédiat, flush différé) perdait la ligne en silence :
+     * `UnitOfWork::commit()` termine en vidant `entityInsertions`, ce qui emporte tout ce qu'un
+     * écouteur y a glissé. Les deux tests de lot au-dessus appellent `log()` hors flush et
+     * passaient donc les deux implémentations — c'est exactement pour cela qu'ils ne suffisaient
+     * pas.
+     */
+    public function testABatchAroundAFlushKeepsTheRowsTheListenerWrites(): void
+    {
+        $invoice = $this->persist(new Invoice('INV-001', organizationId: 7));
+
+        $this->auditLogger->startBatch();
+
+        try {
+            $invoice->setReference('INV-002');
+            $this->entityManager->flush();
+        } finally {
+            $this->auditLogger->endBatch();
+        }
+
+        self::assertSame(
+            [['action' => 'invoice.created'], ['action' => 'invoice.updated']],
+            $this->rowsFromDatabase(),
+            'La ligne écrite depuis postUpdate doit survivre au lot.',
+        );
+    }
+
     public function testASkipWindowSilencesTheAutomaticListener(): void
     {
         $this->listener->startSkip();
