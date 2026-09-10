@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/jul6art/audit-bundle/security/advisories/new
+    about: A trail an attacker can falsify or erase, a secret copied into it, the wrong actor recorded. Reported privately, never as an issue.
+  - name: How to contribute
+    url: https://github.com/jul6art/audit-bundle/blob/master/.github/CONTRIBUTING.md
+    about: The quality gate (composer qa), what the CI adds on top of it, and the house rules.
+  - name: Documentation
+    url: https://github.com/jul6art/audit-bundle#readme
+    about: Configuration, contracts, and the traps already paid for.
