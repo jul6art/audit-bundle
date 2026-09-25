@@ -26,11 +26,20 @@ final class PurgeAuditListener
 {
     public function __construct(
         private readonly AuditLogger $auditLogger,
+        /** @var class-string */
+        private readonly string $logClass = '',
     ) {
     }
 
     public function onEntityPurged(EntityPurgedEvent $event): void
     {
+        // ⚠️ Purging the TRAIL itself is not logged: each purged row would write a fresh
+        // `entity.purged` row, the table would never shrink, and the retention policy would only
+        // rotate it. The row count printed by `core:purge` remains the evidence of that purge.
+        if ('' !== $this->logClass && is_a($event->getEntityClass(), $this->logClass, true)) {
+            return;
+        }
+
         $this->auditLogger->log(
             'entity.purged',
             $event->getOrganizationId(),

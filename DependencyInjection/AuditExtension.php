@@ -50,7 +50,7 @@ class AuditExtension extends Extension implements PrependExtensionInterface
         $this->registerActorResolver($container);
         $this->registerLogger($container, $logClass);
         $this->registerAuditableListener($container, self::ignoredFields($config));
-        $this->registerPurgeListener($container);
+        $this->registerPurgeListener($container, $logClass);
     }
 
     /**
@@ -146,14 +146,14 @@ class AuditExtension extends Extension implements PrependExtensionInterface
      * command exists at all. The event name is a string here on purpose: referencing the class
      * constant would make this extension unloadable against an older core-bundle.
      */
-    private function registerPurgeListener(ContainerBuilder $container): void
+    private function registerPurgeListener(ContainerBuilder $container, string $logClass): void
     {
         if (!class_exists(EntityPurgedEvent::class)) {
             return;
         }
 
         $container->register(PurgeAuditListener::class, PurgeAuditListener::class)
-            ->setArguments([new Reference(AuditLogger::class)])
+            ->setArguments([new Reference(AuditLogger::class), $logClass])
             ->addTag('kernel.event_listener', [
                 'event' => EntityPurgedEvent::NAME,
                 'method' => 'onEntityPurged',

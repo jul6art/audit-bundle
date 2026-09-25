@@ -58,4 +58,30 @@ final class PurgeAuditTest extends AbstractFunctionalTestCase
             "L'intervalle qui a condamné la ligne doit rester lisible.",
         );
     }
+
+    /**
+     * ⚠️ Purging the TRAIL itself must not be logged. Otherwise every purged row writes a fresh
+     * `entity.purged` row: the table never shrinks, and the retention policy only rotates it.
+     */
+    public function testPurgingTheTrailItselfWritesNothing(): void
+    {
+        $container = $this->boot('test', ['log_class' => AuditLog::class], withOrm: true);
+
+        $entityManager = $container->get('doctrine.orm.default_entity_manager');
+        self::assertInstanceOf(EntityManagerInterface::class, $entityManager);
+        new SchemaTool($entityManager)->createSchema($entityManager->getMetadataFactory()->getAllMetadata());
+
+        $dispatcher = $container->get('event_dispatcher');
+        self::assertInstanceOf(EventDispatcherInterface::class, $dispatcher);
+
+        $dispatcher->dispatch(new EntityPurgedEvent(
+            entityClass: AuditLog::class,
+            entityShortName: 'AuditLog',
+            entityId: 1,
+            organizationId: null,
+            interval: '-18 months',
+        ), EntityPurgedEvent::NAME);
+
+        self::assertCount(0, $entityManager->getRepository(AuditLog::class)->findAll());
+    }
 }
