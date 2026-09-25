@@ -180,7 +180,9 @@ class AuditableListener
     {
         $entityType = self::shortName($entity);
 
-        $this->auditLogger->log(
+        // ⚠️ `logWithinFlush()`, never `log()` : we are inside the commit, and a nested flush would
+        // write the rest of the unit of work twice (see AuditLogger::logWithinFlush()).
+        $this->auditLogger->logWithinFlush(
             strtolower($entityType).'.'.$event,
             self::resolveOrganizationId($entity),
             $this->actorResolver?->getCurrentUserIdOrNull(),

@@ -12,6 +12,7 @@ use Jul6Art\AuditBundle\Tests\Fixtures\Entity\AuditLog;
 use Jul6Art\AuditBundle\Tests\Fixtures\Entity\Draft;
 use Jul6Art\AuditBundle\Tests\Fixtures\Entity\Invoice;
 use Jul6Art\AuditBundle\Tests\Fixtures\Entity\PlainRecord;
+use Jul6Art\AuditBundle\Tests\Fixtures\Entity\Stamp;
 use Jul6Art\AuditBundle\Tests\Fixtures\Entity\Ticket;
 use PHPUnit\Framework\Attributes\CoversNothing;
 
@@ -86,6 +87,45 @@ final class AuditTrailTest extends AbstractFunctionalTestCase
         self::assertIsArray($payload);
         self::assertArrayHasKey('diff', $payload);
         self::assertSame(['amount' => ['old' => 0, 'new' => 4200]], $payload['diff']);
+    }
+
+    /**
+     * ⚠️ The listener writes its row WITHOUT flushing the unit of work again. A nested `flush()`
+     * from `postUpdate` recomputes every pending change set: an entity updated later in the same
+     * commit is then written twice — its `PreUpdate` callback re-stamps it, and a second `UPDATE`
+     * goes out. Measured in a consumer on 2026-09-25: one extra query on a budgeted route.
+     */
+    public function testAnAuditedWriteDoesNotWriteTheRestOfTheFlushTwice(): void
+    {
+        $invoice = $this->persist(new Invoice('INV-001'));
+        $stamp = new Stamp();
+        $this->entityManager->persist($stamp);
+        $this->entityManager->flush();
+        Stamp::$preUpdates = 0;
+
+        $invoice->setAmount(4200);
+        $stamp->bump();
+        $this->entityManager->flush();
+
+        self::assertSame(1, Stamp::$preUpdates, 'The unaudited entity was updated more than once in one flush.');
+        self::assertCount(1, $this->rows('invoice.updated'));
+    }
+
+    /**
+     * ⚠️ And the row is written in the SAME transaction as the write it records: rolled back
+     * together, never one without the other.
+     */
+    public function testTheRowIsRolledBackWithTheWriteItRecords(): void
+    {
+        $connection = $this->entityManager->getConnection();
+        $connection->beginTransaction();
+        $this->entityManager->persist(new Invoice('INV-ROLLBACK'));
+        $this->entityManager->flush();
+        self::assertCount(1, $this->rows('invoice.created'), 'Premise: the row exists inside the transaction.');
+        $connection->rollBack();
+        $this->entityManager->clear();
+
+        self::assertCount(0, $this->rows('invoice.created'));
     }
 
     public function testDeletingLogsARow(): void

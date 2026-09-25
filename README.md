@@ -147,6 +147,14 @@ permission granted — is a call:
 $this->auditLogger->log('invoice.sent', $organizationId, $actorId, 'Invoice', $invoice->getId(), ['channel' => 'email']);
 ```
 
+### The listener writes inside your transaction, without a nested flush
+
+Since 3.1 the automatic listener inserts its row through the connection (`logWithinFlush()`),
+inside the transaction the commit already holds: the row is rolled back with the write it
+records, and costs one `INSERT` — no `SAVEPOINT` pair. Before, it flushed the unit of work again
+from `postPersist`/`postUpdate`, which recomputed every pending change set: an entity updated
+later in the same flush was written twice, its `PreUpdate` callbacks run again.
+
 ### Batching a fan-out
 
 `log()` flushes immediately, which is right for one action and disastrous for a hundred: each

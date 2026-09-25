@@ -124,6 +124,50 @@ class AuditLogger
     /**
      * @param array<string, mixed>|null $payload
      */
+    /**
+     * The same entry as {@see log()}, written from INSIDE a flush — by the automatic listener.
+     *
+     * ⚠️ It must not flush the unit of work again. A nested `flush()` from `postPersist` /
+     * `postUpdate` recomputes every pending change set, and an entity updated later in the same
+     * commit is then written twice: its `PreUpdate` callbacks run again and a second `UPDATE`
+     * goes out. The row is therefore inserted through the connection — inside the transaction
+     * the commit already holds, so it is rolled back with the write it records, and without the
+     * `SAVEPOINT` pair a nested flush costs.
+     */
+    public function logWithinFlush(
+        string $action,
+        ?int $organizationId = null,
+        ?int $userId = null,
+        ?string $targetType = null,
+        int|string|null $targetId = null,
+        ?array $payload = null,
+    ): void {
+        $auditLog = $this->build($action, $organizationId, $userId, $targetType, $targetId, $payload);
+
+        if ($this->batchDepth > 0) {
+            $this->buffer[] = $auditLog;
+
+            return;
+        }
+
+        $metadata = $this->entityManager->getClassMetadata($this->logClass);
+        $data = [];
+        $types = [];
+
+        foreach ($metadata->getFieldNames() as $field) {
+            // A post-insert identifier (IDENTITY, SERIAL) is the database's to assign.
+            if ($metadata->isIdentifier($field) && $metadata->idGenerator->isPostInsertGenerator()) {
+                continue;
+            }
+
+            $column = $metadata->getColumnName($field);
+            $data[$column] = $metadata->getFieldValue($auditLog, $field);
+            $types[$column] = $metadata->getTypeOfField($field) ?? 'string';
+        }
+
+        $this->entityManager->getConnection()->insert($metadata->getTableName(), $data, $types);
+    }
+
     public function log(
         string $action,
         ?int $organizationId = null,
@@ -132,9 +176,32 @@ class AuditLogger
         int|string|null $targetId = null,
         ?array $payload = null,
     ): void {
+        $auditLog = $this->build($action, $organizationId, $userId, $targetType, $targetId, $payload);
+
+        if ($this->batchDepth > 0) {
+            $this->buffer[] = $auditLog;
+
+            return;
+        }
+
+        $this->entityManager->persist($auditLog);
+        $this->entityManager->flush();
+    }
+
+    /**
+     * @param array<string, mixed>|null $payload
+     */
+    private function build(
+        string $action,
+        ?int $organizationId,
+        ?int $userId,
+        ?string $targetType,
+        int|string|null $targetId,
+        ?array $payload,
+    ): AuditLog {
         $request = $this->requestStack->getCurrentRequest();
 
-        $auditLog = new $this->logClass(
+        return new $this->logClass(
             action: $action,
             organizationId: $organizationId,
             userId: $userId,
@@ -145,14 +212,5 @@ class AuditLogger
             userAgent: $request?->headers->get('User-Agent'),
             impersonatorId: $this->actorResolver?->getOriginalUserIdOrNull(),
         );
-
-        if ($this->batchDepth > 0) {
-            $this->buffer[] = $auditLog;
-
-            return;
-        }
-
-        $this->entityManager->persist($auditLog);
-        $this->entityManager->flush();
     }
 }
