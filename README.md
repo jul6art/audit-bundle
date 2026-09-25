@@ -209,9 +209,22 @@ Retention
 Rows accumulate forever unless you say otherwise. Put `#[Purgeable]` from jul6art/core-bundle on
 your concrete entity (see step 1) and `core:purge` applies it.
 
-There is deliberately **no `audit.retention` option**: `#[Purgeable(interval: …)]` is an
-attribute argument, so it must be a compile-time constant and cannot read a container parameter.
-A configuration key would look like it worked and would not.
+There is deliberately **no `audit.retention` option** in this bundle: the retention lives on your
+entity. To make it an operational setting, let the interval name a parameter — jul6art/core-bundle
+≥ 3.2 resolves it when `core:purge` runs, so an environment variable changes the purge with no
+rebuild and no migration:
+
+```php
+#[Purgeable(field: 'createdAt', interval: '%app.audit_retention%')]
+```
+
+```yaml
+parameters:
+    env(AUDIT_RETENTION): '-18 months'
+    app.audit_retention: '%env(AUDIT_RETENTION)%'
+```
+
+With an older core-bundle, the interval must be a literal.
 
 The bundle listens to `core-bundle`'s `EntityPurgedEvent` and writes one `entity.purged` row per
 purged line, naming the entity, its id, its organisation and the interval that condemned it. That
