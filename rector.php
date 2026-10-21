@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 use Rector\CodeQuality\Rector\ClassMethod\LocallyCalledStaticMethodToNonStaticRector;
 use Rector\Config\RectorConfig;
+use Rector\DeadCode\Rector\ClassMethod\RemoveEmptyClassMethodRector;
+use Rector\Symfony\Symfony80\Rector\Class_\RemoveEraseCredentialsRector;
 
 return RectorConfig::configure()
     ->withPaths([
@@ -28,5 +30,14 @@ return RectorConfig::configure()
     ->withSkip([
         // Pure helpers are deliberately static: it documents that they touch no state.
         LocallyCalledStaticMethodToNonStaticRector::class,
+        // ⚠️ `eraseCredentials()` left `UserInterface` in Symfony 8, and Rector reasons on the version
+        // installed locally: both rules remove it from the test user. It is still declared by the
+        // interface on 7.4, where the class would turn abstract and fail to load — the `lowest deps`
+        // job. A bundle promising `^7.4 || ^8.0` keeps both. Same skip as admin-bundle; the empty-method
+        // rule took this file first with Rector 2.7.
+        RemoveEraseCredentialsRector::class,
+        RemoveEmptyClassMethodRector::class => [
+            __DIR__.'/Tests/Functional/UserWithId.php',
+        ],
     ])
     ->withImportNames(importShortClasses: false, removeUnusedImports: true);
