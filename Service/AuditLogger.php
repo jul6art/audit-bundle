@@ -54,8 +54,8 @@ use Symfony\Component\HttpFoundation\RequestStack;
  * immediately rather than waiting: a re-entrant flush runs its own complete commit, which does
  * insert the row.
  *
- * Measured on wovex, 2026-08-26: a state-machine transition wrapped in a batch persisted its
- * `workorder.updated` row on every request and stored **none of them** — and the query budget
+ * Measured on cereezer, 2026-08-26: a state-machine transition wrapped in a batch persisted its
+ * `*.updated` row on every request and stored **none of them** — and the query budget
  * looked excellent, precisely because nothing was being written.
  *
  * Batching the writes is not the same thing as silencing the automatic listener: see
