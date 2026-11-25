@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Jul6Art\AuditBundle\Entity;
 
 use Doctrine\ORM\Mapping as ORM;
+use Jul6Art\CoreBundle\Util\Clock;
 
 /**
  * One row per audited action: what happened, to what, by whom, from where.
@@ -111,7 +112,7 @@ abstract class AuditLog
         $this->ipAddress = $ipAddress;
         $this->userAgent = $userAgent;
         $this->impersonatorId = $impersonatorId;
-        $this->createdAt = new \DateTimeImmutable();
+        $this->createdAt = Clock::now();
     }
 
     public function getOrganizationId(): ?int

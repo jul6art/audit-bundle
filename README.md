@@ -15,7 +15,7 @@ Requirements
 
 * **php ^8.6**
 * **symfony ^7.4 || ^8.0**
-* **jul6art/core-bundle ^2.0**
+* **jul6art/core-bundle ^3.14**
 
 Installation
 ------------
